@@ -1,0 +1,12 @@
+# 공모전 데이터 이용 제약: 원본/행 단위 결과의 재배포·공개 금지
+data/
+outputs/
+*.csv
+!docs/**/*.csv
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
