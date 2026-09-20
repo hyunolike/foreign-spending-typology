@@ -1,170 +1,195 @@
-# 외국인 소비 히트맵 & 잠재 관광 상권 발굴
+# Foreign Spending Heatmap & Latent Tourism District Discovery
 
-제1회 AI금융빅데이터플랫폼 소비데이터 활용 분석·아이디어 공모전 분석 코드.
+**English** · [한국어](README.ko.md)
 
-BC카드 시군구·업종별 월 집계(2026.1~6)에서 `GENDER_CD=3`(외국인) 축을 분리해,
-**외국인 소비를 유형화하고 잠재 관광 상권을 발굴**하는 파이프라인이다.
+Analysis code for the 1st AI Financial Big Data Platform Consumption Data Analysis &
+Idea Competition (hosted by BC Card).
 
-> **데이터는 저장소에 포함하지 않는다.** 공모전 데이터는 목적 외 사용·재배포·공개가
-> 금지되어 있어 `data/`와 `outputs/`는 `.gitignore` 처리되어 있다. 코드만 공유하고,
-> 원본 CSV는 각자 로컬 `data/ABP_CONTEST_DATA.csv`에 둔다.
+The pipeline isolates the `GENDER_CD=3` (foreign customer) axis from BC Card's
+municipality × industry monthly aggregates (Jan–Jun 2026), **segments foreign
+spending into behavioural types, and surfaces latent tourism districts**.
 
-## 실행
+> **No data is committed to this repository.** The competition data may not be used
+> outside the competition, redistributed, or published, so `data/` and `outputs/` are
+> git-ignored. Only code is shared; place the source CSV locally at
+> `data/ABP_CONTEST_DATA.csv`.
+
+## Running
 
 ```bash
 pip install -r requirements.txt
-# data/ABP_CONTEST_DATA.csv 배치 후
+# after placing data/ABP_CONTEST_DATA.csv
 python src/run_all.py
 
-# 외부 데이터 결합 (data/external/moj_registered_foreigners.csv 배치 후)
+# external join (after placing data/external/moj_registered_foreigners.csv)
 python src/run_external.py
 
-# 제출용 요약서 PDF (차트가 생성된 뒤에 실행)
+# submission PDF (run after the charts exist)
 pip install playwright && playwright install chromium
 python report/render.py
 ```
 
-`outputs/figures`에 차트 6장, `outputs/tables`에 CSV 3종과 `run_meta.json`(재현용
-지표 스냅샷)이 생성된다. 한글 폰트는 나눔/노토 계열을 자동 탐색한다
-(Ubuntu: `apt-get install -y fonts-nanum`).
+This produces 8 charts in `outputs/figures`, 6 CSVs plus run metadata
+(`run_meta.json`, `external_meta.json` — metric snapshots for reproducibility) in
+`outputs/tables`, and the submission PDF in `outputs/report`. Korean fonts are
+auto-detected from the Nanum/Noto families (Ubuntu: `apt-get install -y fonts-nanum`).
 
-## 문제 제기
+## The problem
 
-외국인 소비 총액은 1조 2,781억 원으로 전체의 7.4%다. 그런데 금액 상위 지역은
-제주를 빼면 시흥·안산 단원·화성 만세·평택·아산 등 **산업단지·근로자 밀집지**이고,
-비중 상위도 영암(31.8%)·음성(26.5%)·진천(23.3%) 등 성격이 같다.
+Foreign spending totals ₩1.278tn, or 7.4% of all spending. Yet once Jeju is set
+aside, the top districts by amount are Siheung, Ansan Danwon, Hwaseong Manse,
+Pyeongtaek and Asan — **industrial complexes and factory-worker clusters**. The top
+districts by *share* look the same: Yeongam (31.8%), Eumseong (26.5%), Jincheon (23.3%).
 
-즉 외국인 소비에는 관광객과 거주 외국인이 섞여 있다. **규모만으로 관광 상권을 고르면
-틀린다 — 유형 분리가 선행되어야 한다.**
+Foreign spending mixes tourists with resident foreigners. **Picking tourism districts
+by volume alone gives the wrong answer — the types must be separated first.**
 
-## 방법
+## Method
 
-| 단계 | 내용 |
+| Step | Detail |
 |---|---|
-| 대상 | 6개월 외국인 소비 10억원 이상 199개 시군구 |
-| 제외 | 제주시·서귀포시는 규모 이상치라 학습에서 빼고 벤치마크로만 사용 → 학습 197곳 |
-| 피처 | 9개 (업종 5 + 연령 2 + 외국인비중 + log 건단가), 모두 외국인 소비 기준 |
-| 군집 | StandardScaler + K-means, k>=3 중 실루엣 최대값 채택 |
-| 명명 | 카페·양식 최고 → 도심 방문형 / 남은 군 중 장보기 최고 → 산업단지 근로형 / 나머지 → 중장년 정주형 |
-| 성장률 | 상대성장률 = (외국인 Q2/Q1) ÷ (내국인 Q2/Q1) − 1 |
-| 후보 | 0.4×유사도 + 0.4×상대성장률 + 0.2×청년비중 (각 백분위) |
+| Scope | 199 municipalities with ≥ ₩1bn in foreign spending over six months |
+| Exclusion | Jeju City and Seogwipo are scale outliers: held out of training, used as a benchmark → 197 trained |
+| Features | 9, all computed on foreign spending: 5 industry shares + 2 age shares + foreign share of local spending + log ticket size |
+| Clustering | StandardScaler + K-means; highest silhouette among k ≥ 3 |
+| Naming rule | Highest cafe/western → Urban Visitor; of the rest, highest groceries → Industrial Worker; remainder → Middle-aged Resident |
+| Growth | Relative growth = (foreign Q2/Q1) ÷ (domestic Q2/Q1) − 1 |
+| Candidates | 0.4 × similarity + 0.4 × relative growth + 0.2 × youth share (each as a percentile) |
 
-## 결과 (`python src/run_all.py` 재현값)
+## Results (reproduced by `python src/run_all.py`)
 
-- 실루엣: k=2 0.231, **k=3 0.242**, k=4 0.175, k=5 0.193, k=6 0.185 → k=3
-- 시드 10회 평균 ARI 1.000 (군집 안정)
+- Silhouette: k=2 0.231, **k=3 0.242**, k=4 0.175, k=5 0.193, k=6 0.185 → k=3
+- Mean ARI 1.000 across 10 seeds (clusters are stable)
 
-| 유형 | 시군구 수 | 외국인 소비 비중 | 평균 상대성장률 |
+| Type | Districts | Share of foreign spending | Mean relative growth |
 |---|---|---|---|
-| 산업단지 근로형 | 68 | 39.0% | −0.8% |
-| 중장년 정주형 | 79 | 24.9% | −0.3% |
-| 도심 방문형 | 50 | 21.5% | **+1.4%** |
+| Industrial Worker | 68 | 39.0% | −0.8% |
+| Middle-aged Resident | 79 | 24.9% | −0.3% |
+| Urban Visitor | 50 | 21.5% | **+1.4%** |
 
-잔여 14.5%는 제주 2곳(12.3%)과 외국인 소비 10억원 미만 소규모 지역(2.2%)의 몫이다.
+The remaining 14.5% belongs to the two Jeju districts (12.3%) and to small districts
+below the ₩1bn threshold (2.2%).
 
-- 대표 상권(제외): 강남구·인천 연수구·수원 팔달구·서울 중구·마포구
-- 후보 58곳, 종합점수 상위: 수원 영통 → 홍성(상대성장률 +11.5%) → 노원 → 강릉 → 성동
+- Flagship districts (excluded from candidates): Gangnam, Incheon Yeonsu, Suwon Paldal, Seoul Jung-gu, Mapo
+- 58 candidates; top by composite score: Suwon Yeongtong → Hongseong (relative growth +11.5%) → Nowon → Gangneung → Seongdong
 
-## 외부 데이터 검증 (법무부 월별 등록외국인)
+## External validation (MOJ monthly registered foreigners)
 
-시군구별 등록외국인 수(2026.1~6 월평균)를 결합해 **199곳 전부 매칭**했다.
+Registered-foreigner counts per municipality (Jan–Jun 2026 monthly average) were
+joined, matching **all 199 districts**.
 
-### 검증 1 — 유형화가 맞았나
+### Check 1 — was the segmentation right?
 
-| 유형 | 상관계수 (log-log) | 설명력 R² | 1인당 외국인 소비 (중앙값) |
+| Type | Correlation (log-log) | R² | Spending per registered foreigner (median) |
 |---|---|---|---|
-| 산업단지 근로형 | **+0.945** | 0.892 | 61만원 |
-| 중장년 정주형 | +0.811 | 0.658 | 87만원 |
-| 도심 방문형 | **+0.588** | 0.345 | 69만원 |
+| Industrial Worker | **+0.945** | 0.892 | ₩610k |
+| Middle-aged Resident | +0.811 | 0.658 | ₩870k |
+| Urban Visitor | **+0.588** | 0.345 | ₩690k |
 
-근로형 소비는 등록외국인 수만으로 89%가 설명된다 — **정주 수요임이 외부 데이터로
-입증**된다. 반면 도심 방문형은 35%밖에 설명되지 않는다. 정주 인구로 환원되지 않는
-수요가 섞여 있다는 뜻이다. 제주는 1인당 549만원으로 전국 유형 평균(61~87만원)의
-6~9배다.
+Registered-foreigner counts alone explain 89% of Industrial Worker spending — the
+**resident-demand reading is confirmed by external data**. Urban Visitor spending, by
+contrast, is only 35% explained: demand that does not reduce to the resident
+population is mixed in. Jeju reaches ₩5.49m per registered foreigner, 6–9× the three
+types (₩610k–870k).
 
-### 검증 2 — 방문수요지수(VDI)
+### Check 2 — Visit Demand Index (VDI)
 
 ```
-log(외국인소비) = 6.84 + 0.566·log(등록외국인수) + 0.420·log(내국인소비) + e
+log(foreign spend) = 6.84 + 0.566·log(registered foreigners) + 0.420·log(domestic spend) + e
 R² = 0.829, n = 197,  VDI = e
 ```
 
-내국인 소비를 **반드시** 통제해야 한다. 빼면 잔차가 '관광'이 아니라 '상권 규모'를
-잡아서 안산 단원·시흥 같은 산업단지가 상위로 올라온다.
+Controlling for domestic spending is **mandatory**. Drop that term and the residual
+captures "commercial district size" rather than tourism, pushing industrial areas like
+Ansan Danwon and Siheung to the top.
 
-제주 VDI는 +2.09(제주시) / +1.64(서귀포시)로 잔차 표준편차(0.31)의 5~7배다.
-관광 수요가 잔차에 잡힌다는 것이 제주로 확인된다.
+Jeju's VDI is +2.09 (Jeju City) and +1.64 (Seogwipo) — 5–7× the residual standard
+deviation (0.31). Jeju, a known tourism destination, confirms that tourism demand does
+surface in this residual.
 
-### 검증 3 — 기존 후보가 틀렸다
+### Check 3 — the first-pass candidates were wrong
 
-내부 데이터만 쓴 후보 점수의 전제 두 개가 모두 뒤집혔다.
+Both assumptions behind the internal-data-only score collapsed.
 
-| 기존 후보 | 새 순위 | VDI | 1인당 외국인 소비 |
+| First-pass candidate | New rank | VDI | Spending per registered foreigner |
 |---|---|---|---|
-| 수원 영통구 | 1위 → 21위 | −0.59 | 36만원 |
-| 서울 노원구 | 3위 → 32위 | −0.68 | 50만원 |
-| 서울 강북구 | 7위 → 47위 | −0.69 | 35만원 |
+| Suwon Yeongtong | 1st → 21st | −0.59 | ₩360k |
+| Seoul Nowon | 3rd → 32nd | −0.68 | ₩500k |
+| Seoul Gangbuk | 7th → 47th | −0.69 | ₩350k |
 
-1. **청년비중은 방문 수요가 아니라 유학생 밀집을 뽑는다.** 기존 상위 후보의 1인당
-   외국인 소비는 35~53만원으로 도심 방문형 중앙값(69만원)에 못 미친다.
-2. **도심 방문형 중심과의 유사도는 방향이 반대다.** 75분위 컷오프가 잘라낸 쪽에
-   동성로(대구 중구)·광안리(부산 수영구)·이태원(용산)·홍대(마포)가 몰려 있다.
-   중심에 가까운 지역이 오히려 평균적인 대학가였다.
+1. **Youth share selects student clusters, not visit demand.** The first-pass leaders
+   spend ₩350k–530k per registered foreigner, below the Urban Visitor median (₩690k).
+2. **Similarity to the Urban Visitor centroid points the wrong way.** The 75th-percentile
+   cutoff was discarding Dongseongno (Daegu Jung-gu), Gwangalli (Busan Suyeong),
+   Itaewon (Yongsan) and Hongdae (Mapo). Districts near the centroid turned out to be
+   the *average* university neighbourhood.
 
-### 최종 잠재 관광 상권 TOP 5
+### Final top 5 latent tourism districts
 
-점수 = 0.6×VDI 순위 + 0.4×상대성장률 순위, VDI>0(방문 수요가 실제로 관측된 곳)만 선정.
+Score = 0.6 × VDI percentile + 0.4 × relative-growth percentile, restricted to VDI > 0
+(places where visit demand is actually observed).
 
-| 순위 | 지역 | VDI | 상대성장률 | 1인당 외국인 소비 |
+| Rank | District | VDI | Relative growth | Spending per registered foreigner |
 |---|---|---|---|---|
-| 1 | 대구 중구 (동성로) | +0.75 | **+12.9%** | **411만원** |
-| 2 | 청주 서원구 | +0.38 | +3.4% | 103만원 |
-| 3 | 강릉 | +0.04 | +3.4% | 98만원 |
-| 4 | 부산 해운대구 | +0.09 | +1.5% | 132만원 |
-| 5 | 인천 중구 (차이나타운·공항) | +0.31 | +0.0% | 114만원 |
+| 1 | Daegu Jung-gu (Dongseongno) | +0.75 | **+12.9%** | **₩4.11m** |
+| 2 | Cheongju Seowon-gu | +0.38 | +3.4% | ₩1.03m |
+| 3 | Gangneung | +0.04 | +3.4% | ₩980k |
+| 4 | Busan Haeundae-gu | +0.09 | +1.5% | ₩1.32m |
+| 5 | Incheon Jung-gu (Chinatown, airport) | +0.31 | +0.0% | ₩1.14m |
 
-대구 중구는 등록외국인이 994명뿐인데 외국인 소비가 41억원이다. 1인당 411만원으로
-도심 방문형 중앙값의 6배이며, 상대성장률도 후보 중 1위다.
+Daegu Jung-gu has only 995 registered foreigners yet ₩4.1bn in foreign spending —
+₩4.11m per resident foreigner, 6× the Urban Visitor median, and the highest relative
+growth of any candidate.
 
-## 해석 주의
+## Reading the results with care
 
-- 후보 상위권에 대학가·연구단지(영통·노원·동작·강북·유성)가 몰린다. 도심 방문형은
-  순수 관광이 아니라 **청년 도심 체류형(관광 + 유학 + 비즈니스)**으로 읽어야 한다.
-- 제주는 세 유형 중심 모두에서 멀다(최근접 거리 5.1~6.5 vs 일반 지역 중앙값 1.9).
-  독자 유형이며, 굳이 고르면 중장년 정주형에 가장 가깝다. **관광 프로파일은 하나가 아니다.**
-- PCA 지도는 분산의 64%만 담으므로, 제주의 이질성은 2차원 그림이 아니라 9차원
-  표준화 거리로 판단해야 한다.
+- University and research districts (Yeongtong, Nowon, Dongjak, Gangbuk, Yuseong)
+  cluster near the top of the first-pass list. Urban Visitor is therefore not pure
+  tourism but **young urban presence (tourism + study + business)**.
+- Jeju sits far from all three centroids (nearest distance 5.1–6.5 vs a median of 1.9
+  for ordinary districts). It is its own type; forced to choose, it is closest to
+  Middle-aged Resident. **There is no single tourism profile.**
+- The PCA map carries only 64% of the variance, so Jeju's distinctness must be judged
+  from the 9-dimensional standardized distance, not from the 2-D picture.
 
-## 한계
+## Limitations
 
-- BC카드 실적 기준이라 전체 카드시장과 차이가 있다.
-- 외국인 코드의 산정 기준(해외 발급 카드 여부, 국내 거주 외국인 카드 포함 여부)이
-  공개되지 않아, 관광/정주 분리는 소비 패턴 기반 추정이다.
-- 6개월 데이터라 연간 계절성 보정에 한계가 있다. 내국인 대비 상대지표로 완화했다.
-- VDI는 '거주지와 소비지의 불일치'를 잡는 지표다. 외국인 관광객뿐 아니라 인근 지역
-  거주 외국인의 원정 소비도 함께 잡힌다. 둘을 분리하려면 한국관광공사 지역별
-  외국인 방문자 수(`docs/external_data.md` B1/B2)가 필요하다.
-- 등록외국인 수는 90일 초과 체류자만 포함한다. 단기 체류 외국인은 빠져 있어,
-  정주 규모가 과소평가되는 지역이 있을 수 있다.
+- Figures are **BC Card transactions only** and differ from the full card market.
+- The definition behind the foreign customer code is not published (whether it covers
+  overseas-issued cards only, or also cards held by resident foreigners), so the
+  tourist/resident split is an inference from spending patterns.
+- Six months of data limits annual seasonality correction; a domestic-relative metric
+  mitigates but does not remove this.
+- VDI captures a **mismatch between where people live and where they spend**. It picks
+  up not only foreign tourists but also resident foreigners spending outside their own
+  district. Separating the two requires KTO's regional foreign visitor counts
+  (see `docs/external_data.md`, items B1/B2).
+- Registered-foreigner counts include only stays longer than 90 days, so short-term
+  visitors are missing and resident scale may be understated in some districts.
 
-## 구조
+## Layout
 
 ```
-src/config.py       경로·상수·한글 폰트
-src/preprocess.py   로드, 업종명 공백 제거, 소표본 업종 병합, 지역 키
-src/regions.py      외부 데이터 결합용 행정구역 정규화 (화성시 신설 구 포함)
-src/features.py     9개 피처 + 대상/학습/벤치마크 분리
-src/cluster.py      k 선정, 안정성(ARI), 군집, 규칙 기반 명명, 중심 거리
-src/growth.py       계절성 보정 상대성장률, 유형별 월별 지수
-src/candidates.py   잠재 상권 후보 점수화 (내부 전용 / 외부 결합 두 버전)
-src/external.py     법무부 등록외국인 로더 (원천 데이터 이슈 3종 보정)
-src/residual.py     방문수요지수(VDI) 회귀, 유형별 검증
-src/viz.py          차트 8장
-src/run_all.py      기본 파이프라인 실행
-src/run_external.py 외부 데이터 결합 단계
-report/report.html  제출용 아이디어 요약서 (A4 9쪽)
-report/render.py    Chromium으로 PDF 렌더링
+src/config.py       paths, constants, Korean font setup
+src/preprocess.py   loading, industry-name cleanup, small-sample merges, region keys
+src/regions.py      administrative-name normalization for external joins (incl. new Hwaseong districts)
+src/features.py     the 9 features + scope/training/benchmark split
+src/cluster.py      k selection, stability (ARI), clustering, rule-based naming, centroid distances
+src/growth.py       seasonality-adjusted relative growth, monthly index by type
+src/candidates.py   candidate scoring (internal-only and external-join versions)
+src/external.py     MOJ registered-foreigner loader (fixes 3 source-data defects)
+src/residual.py     VDI regression and per-type validation
+src/viz.py          8 charts
+src/run_all.py      base pipeline
+src/run_external.py external join stage
+report/report.html  submission summary document (A4, 9 pages, Korean)
+report/render.py    PDF rendering via Chromium
 ```
 
-자세한 전처리 근거는 [docs/data_notes.md](docs/data_notes.md),
-외부 데이터 후보는 [docs/external_data.md](docs/external_data.md) 참고.
+## Further reading
+
+The supporting documents are written in Korean:
+
+- [README.ko.md](README.ko.md) — this document in Korean
+- [docs/data_notes.md](docs/data_notes.md) — preprocessing decisions and their justification
+- [docs/external_data.md](docs/external_data.md) — external data survey, source-data defects, join design
