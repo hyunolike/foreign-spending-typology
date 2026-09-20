@@ -31,6 +31,95 @@ python report/render.py
 PDF가 생성된다. 한글 폰트는 나눔/노토 계열을 자동 탐색한다
 (Ubuntu: `apt-get install -y fonts-nanum`).
 
+## 시스템 구조
+
+```mermaid
+flowchart LR
+    D1[("BC카드 시군구·업종별 월 집계<br/>242,574행 · 255 시군구")]
+    D2[("법무부 월별 등록외국인<br/>시군구별 거주 현황")]
+
+    subgraph S1["1단계 — src/run_all.py"]
+        direction TB
+        P1["preprocess.py<br/>업종명 정규화 · 한식 3종 병합"]
+        P2["features.py<br/>9개 피처 · 199 / 197 / 2 분리"]
+        P3["cluster.py<br/>K-means · k 선정 · ARI 안정성"]
+        P4["growth.py<br/>계절성 보정 상대성장률"]
+        P5["candidates.py<br/>1차 후보 점수"]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
+
+    subgraph S2["2단계 — src/run_external.py"]
+        direction TB
+        E1["external.py<br/>원천 이슈 3종 보정 · 199/199 매칭"]
+        E3["residual.py<br/>VDI 회귀 · 유형별 검증"]
+        E4["candidates.py<br/>최종 후보 점수"]
+        E1 --> E3 --> E4
+    end
+
+    RG["regions.py<br/>행정구역 정규화"]
+    VZ["viz.py<br/>차트 8장"]
+
+    subgraph S3["3단계 — report/render.py"]
+        direction TB
+        H["report.html + style.css"]
+        C["Chromium · Playwright"]
+        H --> C
+    end
+
+    T[("outputs/tables<br/>CSV 6종 + 메타 2종")]
+    F[("outputs/figures<br/>fig1 ~ fig8")]
+    R[("outputs/report<br/>요약서 PDF · A4 9쪽")]
+
+    D1 --> P1
+    D2 --> E1
+    RG -.-> E1
+    S1 -->|region_typology.csv| S2
+    S1 --> VZ
+    S2 --> VZ
+    S1 --> T
+    S2 --> T
+    VZ --> F
+    F --> H
+    C --> R
+
+    classDef src fill:#eef4fc,stroke:#2a78d6,color:#0b0b0b
+    classDef out fill:#f4f3f0,stroke:#8a8880,color:#0b0b0b
+    class D1,D2 src
+    class T,F,R out
+```
+
+3단계이며 각각 따로 실행할 수 있다. 2단계는 1단계의 산출 테이블
+(`region_typology.csv`)을 읽으므로 순서를 지켜야 하고, 3단계는 차트만 있으면 된다.
+`viz.py`와 `candidates.py`는 단계 공용이다. `candidates.py`는 내부 전용 점수와 외부
+결합 점수를 모두 제공해 두 결과를 비교할 수 있게 했다.
+
+## 기술 스택
+
+| 구분 | 사용 기술 | 위치 |
+|---|---|---|
+| 언어 | Python 3.11 | — |
+| 데이터 처리 | pandas ≥ 2.0 (집계·피벗·결합), numpy ≥ 1.24 | `src/preprocess.py`, `src/features.py` |
+| 군집 | scikit-learn ≥ 1.3 — `KMeans`, `StandardScaler`, `silhouette_score`, `adjusted_rand_score` | `src/cluster.py` |
+| 차원 축소 | scikit-learn `PCA` (2차원 프로파일 지도) | `src/viz.py` |
+| 회귀 | `numpy.linalg.lstsq` 기반 OLS(VDI 모형), `numpy.polyfit`(유형별 추세선) | `src/residual.py`, `src/viz.py` |
+| 시각화 | matplotlib ≥ 3.7, `LinearSegmentedColormap` · `TwoSlopeNorm` 커스텀 컬러맵 | `src/viz.py` |
+| 문서 | HTML + CSS 인쇄 규칙(`@page`, A4, 표 머리행 반복)을 Playwright + Chromium으로 렌더링 | `report/` |
+| 폰트 | 나눔고딕 (차트와 PDF 공통) | `src/config.py`, `report/style.css` |
+| 노트북 | Jupyter | `notebooks/analysis.ipynb` |
+| 인코딩 | 법무부 원천은 CP949, 산출 CSV는 UTF-8-SIG (엑셀에서 바로 열림) | `src/external.py`, `src/run_all.py` |
+
+`pandas`·`numpy`·`scikit-learn`·`matplotlib`은 `requirements.txt`에 고정되어 있다.
+Playwright는 PDF 생성에만 필요해 별도로 설치한다.
+
+### 적용한 기법
+
+- k는 k ≥ 3 중 실루엣 최대값으로 선택하고, 시드 10회 평균 ARI로 안정성을 확인한다
+- 군집 명명은 규칙 기반이라 사람이 붙이지 않아도 재현된다
+- 제주는 표준화 중심 거리로 판정해 억지로 한 유형에 넣지 않고 독자 유형으로 둔다
+- 계절성은 같은 지역 내국인 증감으로 나누는 비율 방식으로 통제한다
+- VDI는 OLS 잔차를 지표로 쓰되, 내국인 소비를 필수 통제변수로 넣는다
+- 점수는 백분위 순위 가중이라 단위가 다른 지표를 재척도화 없이 합칠 수 있다
+
 ## 문제 제기
 
 외국인 소비 총액은 1조 2,781억 원으로 전체의 7.4%다. 그런데 금액 상위 지역은
@@ -150,7 +239,7 @@ R² = 0.829, n = 197,  VDI = e
 - 등록외국인 수는 90일 초과 체류자만 포함한다. 단기 체류 외국인은 빠져 있어,
   정주 규모가 과소평가되는 지역이 있을 수 있다.
 
-## 구조
+## 파일 구성
 
 ```
 src/config.py       경로·상수·한글 폰트

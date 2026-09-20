@@ -34,6 +34,95 @@ This produces 8 charts in `outputs/figures`, 6 CSVs plus run metadata
 `outputs/tables`, and the submission PDF in `outputs/report`. Korean fonts are
 auto-detected from the Nanum/Noto families (Ubuntu: `apt-get install -y fonts-nanum`).
 
+## System architecture
+
+```mermaid
+flowchart LR
+    D1[("BC Card monthly aggregates<br/>242,574 rows · 255 districts")]
+    D2[("MOJ registered foreigners<br/>monthly, by district")]
+
+    subgraph S1["Stage 1 — src/run_all.py"]
+        direction TB
+        P1["preprocess.py<br/>name cleanup · industry merges"]
+        P2["features.py<br/>9 features · 199 / 197 / 2 split"]
+        P3["cluster.py<br/>K-means · k selection · ARI"]
+        P4["growth.py<br/>seasonality-adjusted growth"]
+        P5["candidates.py<br/>first-pass scoring"]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
+
+    subgraph S2["Stage 2 — src/run_external.py"]
+        direction TB
+        E1["external.py<br/>3 source-defect fixes · 199/199 match"]
+        E3["residual.py<br/>VDI regression · per-type validation"]
+        E4["candidates.py<br/>final scoring"]
+        E1 --> E3 --> E4
+    end
+
+    RG["regions.py<br/>administrative-name normalization"]
+    VZ["viz.py<br/>8 charts"]
+
+    subgraph S3["Stage 3 — report/render.py"]
+        direction TB
+        H["report.html + style.css"]
+        C["Chromium · Playwright"]
+        H --> C
+    end
+
+    T[("outputs/tables<br/>6 CSVs + 2 metadata")]
+    F[("outputs/figures<br/>fig1 ~ fig8")]
+    R[("outputs/report<br/>summary PDF · A4, 9pp")]
+
+    D1 --> P1
+    D2 --> E1
+    RG -.-> E1
+    S1 -->|region_typology.csv| S2
+    S1 --> VZ
+    S2 --> VZ
+    S1 --> T
+    S2 --> T
+    VZ --> F
+    F --> H
+    C --> R
+
+    classDef src fill:#eef4fc,stroke:#2a78d6,color:#0b0b0b
+    classDef out fill:#f4f3f0,stroke:#8a8880,color:#0b0b0b
+    class D1,D2 src
+    class T,F,R out
+```
+
+Three stages, each runnable on its own. Stage 2 reads stage 1's output table
+(`region_typology.csv`), so the order matters; stage 3 only needs the charts to exist.
+`viz.py` and `candidates.py` are shared across stages — `candidates.py` exposes both
+the internal-only and the external-join scoring so the two can be compared.
+
+## Tech stack
+
+| Layer | What is used | Where |
+|---|---|---|
+| Language | Python 3.11 | — |
+| Data handling | pandas ≥ 2.0 (aggregation, pivots, joins), numpy ≥ 1.24 | `src/preprocess.py`, `src/features.py` |
+| Clustering | scikit-learn ≥ 1.3 — `KMeans`, `StandardScaler`, `silhouette_score`, `adjusted_rand_score` | `src/cluster.py` |
+| Dimensionality reduction | scikit-learn `PCA` for the 2-D profile map | `src/viz.py` |
+| Regression | OLS via `numpy.linalg.lstsq` (the VDI model), `numpy.polyfit` for per-type trend lines | `src/residual.py`, `src/viz.py` |
+| Charts | matplotlib ≥ 3.7 with custom `LinearSegmentedColormap` / `TwoSlopeNorm` colour maps | `src/viz.py` |
+| Document | HTML + CSS print rules (`@page`, A4, repeating table headers) rendered through Playwright + Chromium | `report/` |
+| Fonts | NanumGothic, shared by the charts and the PDF | `src/config.py`, `report/style.css` |
+| Notebook | Jupyter | `notebooks/analysis.ipynb` |
+| Encodings | CP949 on the MOJ source, UTF-8-SIG on emitted CSVs (opens cleanly in Excel) | `src/external.py`, `src/run_all.py` |
+
+`pandas`, `numpy`, `scikit-learn` and `matplotlib` are pinned in `requirements.txt`.
+Playwright is only needed for the PDF and is installed separately.
+
+### Methods applied
+
+- k chosen by the highest silhouette among k ≥ 3; stability confirmed by mean ARI across 10 seeds
+- rule-based cluster naming, so labels are reproducible rather than hand-assigned
+- standardized centroid distance used to judge Jeju as its own type rather than forcing it into one
+- ratio-based seasonality control: foreign growth divided by domestic growth in the same district
+- OLS residual used as an index (VDI), with domestic spending as a mandatory control variable
+- percentile-rank weighted scoring, so incommensurable metrics combine without rescaling
+
 ## The problem
 
 Foreign spending totals ₩1.278tn, or 7.4% of all spending. Yet once Jeju is set
@@ -167,7 +256,7 @@ growth of any candidate.
 - Registered-foreigner counts include only stays longer than 90 days, so short-term
   visitors are missing and resident scale may be understated in some districts.
 
-## Layout
+## Repository layout
 
 ```
 src/config.py       paths, constants, Korean font setup
