@@ -226,3 +226,90 @@ def fig6_candidates(cand: pd.DataFrame, top_n: int = 10) -> str:
             va="top", ha="left", fontsize=9, color=INK_2, linespacing=1.7)
     fig.tight_layout()
     return save(fig, "fig6_candidates.png")
+
+
+def fig7_external_validation(table: pd.DataFrame, corr: pd.DataFrame,
+                             bench_label: str = "제주(벤치마크)") -> str:
+    """등록외국인 수로 외국인 소비가 얼마나 설명되는지를 유형별로 비교."""
+    fig, ax = plt.subplots(figsize=(9.4, 6.4))
+    tr = table[table["유형"] != bench_label]
+    for name, color in SERIES.items():
+        g = tr[tr["유형"] == name]
+        if not len(g):
+            continue
+        x, y = np.log10(g["등록외국인수"]), np.log10(g["외국인금액"] / 1e8)
+        ax.scatter(x, y, s=42, color=color, alpha=0.8, edgecolor="white", lw=1.1,
+                   zorder=3, label=f"{name} (r={corr.loc[name, '상관계수']:+.2f})")
+        b, a = np.polyfit(x, y, 1)
+        xs = np.linspace(x.min(), x.max(), 20)
+        ax.plot(xs, a + b * xs, color=color, lw=2, alpha=0.85, zorder=4)
+
+    bench = table[table["유형"] == bench_label]
+    if len(bench):
+        ax.scatter(np.log10(bench["등록외국인수"]), np.log10(bench["외국인금액"] / 1e8),
+                   s=340, marker="*", color="#4a3aa7", edgecolor="white", lw=1.4,
+                   zorder=5, label="제주 (학습 제외)")
+        for nm, r in bench.iterrows():
+            ax.annotate(nm.split()[-1],
+                        (np.log10(r["등록외국인수"]), np.log10(r["외국인금액"] / 1e8)),
+                        textcoords="offset points", xytext=(14, -4),
+                        fontsize=9.5, color=INK, zorder=6)
+
+    ax.set_xlabel("등록외국인 수 (log10, 명)", color=INK_2, fontsize=9)
+    ax.set_ylabel("외국인 소비 (log10, 억원)", color=INK_2, fontsize=9)
+    _frame(ax, "외부 데이터 검증: 외국인 소비 vs 등록외국인 수",
+           "근로형은 정주 인구로 거의 설명되지만(r=0.95) 도심 방문형은 절반도 설명되지 않는다")
+    ax.grid(color=GRID, lw=0.8)
+    leg = ax.legend(frameon=False, fontsize=9.5, loc="upper left")
+    for t_ in leg.get_texts():
+        t_.set_color(INK_2)
+    fig.tight_layout()
+    return save(fig, "fig7_external_validation.png")
+
+
+def fig8_final_candidates(cand: pd.DataFrame, top: pd.DataFrame) -> str:
+    """VDI(방문 수요) × 상대성장률 사분면."""
+    fig, ax = plt.subplots(figsize=(10.2, 6.6))
+    ax.axhline(0, color=INK_MUTED, lw=1, ls="--", zorder=1)
+    ax.axvline(0, color=INK_MUTED, lw=1, ls="--", zorder=1)
+
+    rest = cand.drop(index=top.index, errors="ignore")
+    size = lambda d: d["외국인금액"] / cand["외국인금액"].max() * 320 + 50
+    ax.scatter(rest["VDI"], rest["상대성장률"] * 100, s=size(rest), color="#a9c8ec",
+               edgecolor="white", lw=1.1, zorder=3, label="기타 후보")
+    ax.scatter(top["VDI"], top["상대성장률"] * 100, s=size(top), color="#2a78d6",
+               edgecolor="white", lw=1.3, zorder=4, label="최종 TOP 5")
+    # 사분면 라벨이 들어갈 여백을 위쪽에 먼저 확보한다
+    xl = ax.get_xlim()
+    ax.set_xlim(xl[0] - 0.05, xl[1] + 0.12)
+    yl = ax.get_ylim()
+    ax.set_ylim(yl[0], yl[1] + (yl[1] - yl[0]) * 0.14)
+
+    # 값이 비슷한 후보끼리 겹치지 않도록 위/아래를 번갈아 둔다
+    for i, (nm, r) in enumerate(top.iterrows()):
+        label = (nm.replace("특별자치도", "").replace("특별시", "")
+                   .replace("광역시", "").replace("충청북도 ", ""))
+        lo, hi = ax.get_xlim()
+        right = r["VDI"] > lo + 0.75 * (hi - lo)  # 오른쪽 끝에서만 안쪽으로 붙인다
+        ax.annotate(label, (r["VDI"], r["상대성장률"] * 100),
+                    textcoords="offset points",
+                    xytext=(-12 if right else 12, 9 if i % 2 == 0 else -17),
+                    ha="right" if right else "left",
+                    fontsize=9.5, color=INK, zorder=6)
+
+    xl, yl = ax.get_xlim(), ax.get_ylim()
+    ax.text(xl[1] - 0.01, yl[1], "방문 수요 + 성장 ", ha="right", va="top",
+            fontsize=9, color=INK_MUTED)
+    ax.text(xl[0] + 0.01, yl[1], " 잠재 성장형", ha="left", va="top",
+            fontsize=9, color=INK_MUTED)
+    ax.set_xlabel("방문수요지수 VDI (정주 인구·상권 규모 통제 후 초과 소비)",
+                  color=INK_2, fontsize=9)
+    ax.set_ylabel("계절성 보정 상대성장률 (%)", color=INK_2, fontsize=9)
+    _frame(ax, "잠재 관광 상권 최종 후보",
+           "도심 방문형 45곳 (대표 상권 5곳 제외) · 원 크기 = 외국인 소비 금액")
+    ax.grid(color=GRID, lw=0.8)
+    leg = ax.legend(frameon=False, fontsize=9.5, loc="lower right")
+    for t_ in leg.get_texts():
+        t_.set_color(INK_2)
+    fig.tight_layout()
+    return save(fig, "fig8_final_candidates.png")
