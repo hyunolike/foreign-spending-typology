@@ -18,6 +18,10 @@ python src/run_all.py
 
 # 외부 데이터 결합 (data/external/moj_registered_foreigners.csv 배치 후)
 python src/run_external.py
+
+# 제출용 요약서 PDF (차트가 생성된 뒤에 실행)
+pip install playwright && playwright install chromium
+python report/render.py
 ```
 
 `outputs/figures`에 차트 6장, `outputs/tables`에 CSV 3종과 `run_meta.json`(재현용
@@ -158,6 +162,8 @@ src/residual.py     방문수요지수(VDI) 회귀, 유형별 검증
 src/viz.py          차트 8장
 src/run_all.py      기본 파이프라인 실행
 src/run_external.py 외부 데이터 결합 단계
+report/report.html  제출용 아이디어 요약서 (A4 9쪽)
+report/render.py    Chromium으로 PDF 렌더링
 ```
 
 자세한 전처리 근거는 [docs/data_notes.md](docs/data_notes.md),
