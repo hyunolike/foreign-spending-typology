@@ -44,7 +44,7 @@ table.compact td,table.compact th{padding:4px 7px;}
 
 figure{margin:10px 0 12px; page-break-inside:avoid;}
 figure img{width:100%; border:1px solid var(--line2); border-radius:3px;}
-figure img.m{width:82%; display:block; margin:0 auto;}
+figure img.m{width:72%; display:block; margin:0 auto;}
 figcaption{font-size:8pt; color:var(--ink3); margin-top:4px;}
 
 .note{background:#faf9f6; border:1px solid var(--line); border-radius:4px;
@@ -73,3 +73,5 @@ tr{page-break-inside:avoid;}
 .formula,.note,.kpis,.hero{page-break-inside:avoid;}
 li{page-break-inside:avoid;}
 p{orphans:2; widows:2;}
+
+sup{font-size:0.72em; line-height:0; vertical-align:0.42em;}
