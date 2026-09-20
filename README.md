@@ -1,13 +1,92 @@
-# Foreign Spending Heatmap & Latent Tourism District Discovery
+# 외국인 소비 히트맵 & 잠재 관광 상권 발굴
 
-Analysis code for the 1st AI Financial Big Data Platform Consumption Data Analysis &
-Idea Competition (hosted by BC Card).
+제1회 AI금융빅데이터플랫폼 소비데이터 활용 분석·아이디어 공모전 분석 코드.
 
-The pipeline isolates the foreign-customer axis from BC Card's municipality × industry
-monthly aggregates, segments foreign spending into behavioural types, and surfaces
-latent tourism districts.
+BC카드 시군구·업종별 월 집계(2026.1~6)에서 `GENDER_CD=3`(외국인) 축을 분리해,
+**외국인 소비를 유형화하고 잠재 관광 상권을 발굴**하는 파이프라인이다.
 
-> Competition data may not be used outside the competition, redistributed, or
-> published. No data files belong in this repository.
+> **데이터는 저장소에 포함하지 않는다.** 공모전 데이터는 목적 외 사용·재배포·공개가
+> 금지되어 있어 `data/`와 `outputs/`는 `.gitignore` 처리되어 있다. 코드만 공유하고,
+> 원본 CSV는 각자 로컬 `data/ABP_CONTEST_DATA.csv`에 둔다.
 
-Work lands here through pull requests.
+## 실행
+
+```bash
+pip install -r requirements.txt
+# data/ABP_CONTEST_DATA.csv 배치 후
+python src/run_all.py
+```
+
+`outputs/figures`에 차트 6장, `outputs/tables`에 CSV 3종과 `run_meta.json`(재현용
+지표 스냅샷)이 생성된다. 한글 폰트는 나눔/노토 계열을 자동 탐색한다
+(Ubuntu: `apt-get install -y fonts-nanum`).
+
+## 문제 제기
+
+외국인 소비 총액은 1조 2,781억 원으로 전체의 7.4%다. 그런데 금액 상위 지역은
+제주를 빼면 시흥·안산 단원·화성 만세·평택·아산 등 **산업단지·근로자 밀집지**이고,
+비중 상위도 영암(31.8%)·음성(26.5%)·진천(23.3%) 등 성격이 같다.
+
+즉 외국인 소비에는 관광객과 거주 외국인이 섞여 있다. **규모만으로 관광 상권을 고르면
+틀린다 — 유형 분리가 선행되어야 한다.**
+
+## 방법
+
+| 단계 | 내용 |
+|---|---|
+| 대상 | 6개월 외국인 소비 10억원 이상 199개 시군구 |
+| 제외 | 제주시·서귀포시는 규모 이상치라 학습에서 빼고 벤치마크로만 사용 → 학습 197곳 |
+| 피처 | 9개 (업종 5 + 연령 2 + 외국인비중 + log 건단가), 모두 외국인 소비 기준 |
+| 군집 | StandardScaler + K-means, k>=3 중 실루엣 최대값 채택 |
+| 명명 | 카페·양식 최고 → 도심 방문형 / 남은 군 중 장보기 최고 → 산업단지 근로형 / 나머지 → 중장년 정주형 |
+| 성장률 | 상대성장률 = (외국인 Q2/Q1) ÷ (내국인 Q2/Q1) − 1 |
+| 후보 | 0.4×유사도 + 0.4×상대성장률 + 0.2×청년비중 (각 백분위) |
+
+## 결과 (`python src/run_all.py` 재현값)
+
+- 실루엣: k=2 0.231, **k=3 0.242**, k=4 0.175, k=5 0.193, k=6 0.185 → k=3
+- 시드 10회 평균 ARI 1.000 (군집 안정)
+
+| 유형 | 시군구 수 | 외국인 소비 비중 | 평균 상대성장률 |
+|---|---|---|---|
+| 산업단지 근로형 | 68 | 39.0% | −0.8% |
+| 중장년 정주형 | 79 | 24.9% | −0.3% |
+| 도심 방문형 | 50 | 21.5% | **+1.4%** |
+
+잔여 14.5%는 제주 2곳(12.3%)과 외국인 소비 10억원 미만 소규모 지역(2.2%)의 몫이다.
+
+- 대표 상권(제외): 강남구·인천 연수구·수원 팔달구·서울 중구·마포구
+- 후보 58곳, 종합점수 상위: 수원 영통 → 홍성(상대성장률 +11.5%) → 노원 → 강릉 → 성동
+
+## 해석 주의
+
+- 후보 상위권에 대학가·연구단지(영통·노원·동작·강북·유성)가 몰린다. 도심 방문형은
+  순수 관광이 아니라 **청년 도심 체류형(관광 + 유학 + 비즈니스)**으로 읽어야 한다.
+- 제주는 세 유형 중심 모두에서 멀다(최근접 거리 5.1~6.5 vs 일반 지역 중앙값 1.9).
+  독자 유형이며, 굳이 고르면 중장년 정주형에 가장 가깝다. **관광 프로파일은 하나가 아니다.**
+- PCA 지도는 분산의 64%만 담으므로, 제주의 이질성은 2차원 그림이 아니라 9차원
+  표준화 거리로 판단해야 한다.
+
+## 한계
+
+- BC카드 실적 기준이라 전체 카드시장과 차이가 있다.
+- 외국인 코드의 산정 기준(해외 발급 카드 여부, 국내 거주 외국인 카드 포함 여부)이
+  공개되지 않아, 관광/정주 분리는 소비 패턴 기반 추정이다.
+- 6개월 데이터라 연간 계절성 보정에 한계가 있다. 내국인 대비 상대지표로 완화했다.
+
+## 구조
+
+```
+src/config.py       경로·상수·한글 폰트
+src/preprocess.py   로드, 업종명 공백 제거, 소표본 업종 병합, 지역 키
+src/regions.py      외부 데이터 결합용 행정구역 정규화 (화성시 신설 구 포함)
+src/features.py     9개 피처 + 대상/학습/벤치마크 분리
+src/cluster.py      k 선정, 안정성(ARI), 군집, 규칙 기반 명명, 중심 거리
+src/growth.py       계절성 보정 상대성장률, 유형별 월별 지수
+src/candidates.py   잠재 상권 후보 점수화
+src/viz.py          차트 6장
+src/run_all.py      전체 실행
+```
+
+자세한 전처리 근거는 [docs/data_notes.md](docs/data_notes.md),
+외부 데이터 후보는 [docs/external_data.md](docs/external_data.md) 참고.
