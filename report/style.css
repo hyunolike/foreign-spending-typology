@@ -75,3 +75,25 @@ li{page-break-inside:avoid;}
 p{orphans:2; widows:2;}
 
 sup{font-size:0.72em; line-height:0; vertical-align:0.42em;}
+
+/* ── 공모전 공식 양식(2. 아이디어 요약서.doc)의 겉틀 ───────────────────── */
+.form-title{
+  border:1.2px solid var(--ink); padding:13px 16px; text-align:center;
+  font-size:14pt; font-weight:700; line-height:1.5; letter-spacing:-0.4px;
+  margin-bottom:18px;
+}
+.form-sec{display:flex; align-items:stretch; margin:0 0 10px;}
+.form-sec .no{
+  background:var(--ink); color:#fff; font-weight:700; font-size:11pt;
+  padding:5px 14px; display:flex; align-items:center;
+}
+.form-sec .nm{
+  flex:1; border:1px solid var(--line); border-left:0; padding:5px 12px;
+  font-weight:700; font-size:11pt; display:flex; align-items:center;
+}
+table.form-fields{margin:0 0 16px;}
+table.form-fields th{
+  width:17%; background:#f4f3f0; border:1px solid var(--line);
+  padding:7px 10px; vertical-align:middle; white-space:nowrap;
+}
+table.form-fields td{border:1px solid var(--line); padding:7px 10px;}

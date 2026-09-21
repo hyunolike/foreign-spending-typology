@@ -20,13 +20,26 @@ CHROME_CANDIDATES = [
     "/usr/bin/google-chrome",
 ]
 
-FOOTER = (
-    '<div style="width:100%;font-size:7.5pt;color:#8a8880;'
-    'font-family:NanumGothic,sans-serif;padding:0 15mm;">'
-    '<span style="float:left">외국인 소비 히트맵 &amp; 잠재 관광 상권 발굴</span>'
-    '<span style="float:right"><span class="pageNumber"></span>'
-    ' / <span class="totalPages"></span></span></div>'
-)
+# 공모전 공식 양식의 푸터: 좌측 "AI금융빅데이터플랫폼", 우측 쪽번호.
+# 주최 측 로고는 저장소에 두지 않고 data/ 아래에서 읽어 data URI로 끼워 넣는다.
+LOGO = ROOT / "data" / "template_assets" / "bc_logo.png"
+
+
+def _footer() -> str:
+    mark = ""
+    if LOGO.exists():
+        import base64
+
+        b64 = base64.b64encode(LOGO.read_bytes()).decode()
+        mark = (f'<img src="data:image/png;base64,{b64}" '
+                'style="height:9px;vertical-align:-1px;margin-right:5px">')
+    return (
+        '<div style="width:100%;font-size:7.5pt;color:#8a8880;'
+        'font-family:NanumGothic,sans-serif;padding:0 15mm;">'
+        f'<span style="float:left">{mark}AI금융빅데이터플랫폼</span>'
+        '<span style="float:right"><span class="pageNumber"></span>'
+        ' / <span class="totalPages"></span></span></div>'
+    )
 
 
 def main() -> None:
@@ -41,7 +54,7 @@ def main() -> None:
             path=str(OUT), format="A4", print_background=True,
             margin={"top": "16mm", "bottom": "14mm", "left": "15mm", "right": "15mm"},
             display_header_footer=True,
-            header_template="<div></div>", footer_template=FOOTER,
+            header_template="<div></div>", footer_template=_footer(),
         )
         browser.close()
     print(f"{OUT}  ({OUT.stat().st_size / 1024:.0f} KB)")
