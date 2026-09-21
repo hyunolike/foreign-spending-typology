@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>아이디어 요약서 — 외국인 소비 히트맵 &amp; 잠재 관광 상권 발굴</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="form-title">
+  <div>제 1회 AI금융빅데이터플랫폼 소비데이터 활용</div>
+  <div>아이디어 공모전 아이디어 요약서</div>
+</div>
+
+<div class="form-sec"><span class="no">1</span><span class="nm">아이디어 요약서</span></div>
+
+<table class="form-fields"><tbody>
+<tr><th>개인(팀)명</th><td>장현호 (개인)</td></tr>
+<tr><th>주제</th><td>외국인 소비 히트맵 &amp; 잠재 관광 상권 발굴</td></tr>
+</tbody></table>
+
+<div class="hero">
+  <p class="q">외국인 소비 금액 상위 지역은 제주를 빼면 시흥·안산 단원·화성 만세·평택·아산이다.<br>관광지가 아니라 산업단지다.</p>
+  <p class="a">외국인 소비에는 관광객과 거주 외국인이 섞여 있다. 규모만 보고 관광 상권을 고르면 틀린다.
+  <b>유형 분리가 선행되어야 한다.</b></p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">1조 2,781억</div><div class="l">외국인 소비 총액<br>(2026.1~6, 전체의 7.4%)</div></div>
+  <div class="kpi"><div class="v">3개 유형</div><div class="l">197개 시군구 K-means<br>실루엣 0.242 · ARI 1.000</div></div>
+  <div class="kpi"><div class="v">199 / 199</div><div class="l">법무부 등록외국인<br>결합 매칭률</div></div>
+  <div class="kpi"><div class="v">TOP 5</div><div class="l">잠재 관광 상권<br>방문수요지수 기반</div></div>
+</div>
+
+<h2>1. 무엇을 했나</h2>
+<p>제공 데이터에서 다른 참가자가 지나치기 쉬운 <code>GENDER_CD=3</code>(외국인) 축을 분리해,
+외국인 소비만으로 9개 피처를 만들고 197개 시군구를 <b>3개 유형</b>으로 나눴다.
+그다음 <b>법무부 월별 등록외국인</b>을 결합해 이 유형이 실제 정주 구조와 맞는지 검증했다.</p>
+
+<table class="compact"><thead>
+<tr><th>유형</th><th class="n">시군구</th><th class="n">외국인 소비</th><th class="n">등록외국인 수와의 상관</th><th>해석</th></tr></thead><tbody>
+<tr><td><b>산업단지 근로형</b></td><td class="n">68</td><td class="n">4,990억 (39.0%)</td><td class="n"><b>+0.945</b></td><td>정주 수요. 소비의 89%가 거주 인구로 설명된다</td></tr>
+<tr><td><b>중장년 정주형</b></td><td class="n">79</td><td class="n">3,184억 (24.9%)</td><td class="n">+0.811</td><td>정주 수요</td></tr>
+<tr class="hl"><td><b>도심 방문형</b></td><td class="n">50</td><td class="n">2,751억 (21.5%)</td><td class="n"><b>+0.588</b></td><td><b>35%만 설명된다.</b> 정주로 환원되지 않는 수요가 섞여 있다</td></tr>
+</tbody></table>
+
+<p>이 차이를 지표로 만든 것이 <b>방문수요지수(VDI)</b>다. 정주 인구와 상권 규모를 통제하고
+남는 외국인 소비다.</p>
+<div class="formula">log(외국인소비) = 6.84 + 0.566·log(등록외국인수) + 0.420·log(내국인소비) + e<br>
+R^2 = 0.829, n = 197,  <b>VDI = e</b></div>
+<p class="sub">타당성 검증: 제주의 VDI는 +2.09·+1.64로 잔차 표준편차(0.31)의 5~7배다. 이미 관광지로 알려진 제주가 지표를 확인해 준다.</p>
+
+<h2>2. 무엇을 찾았나</h2>
+<p><b>이 지표는 본 분석의 1차 결과부터 반증했다.</b> 제공 데이터만으로 뽑은 후보(수원 영통 1위,
+서울 노원 3위)는 1인당 외국인 소비가 35~53만원으로 도심 방문형 중앙값(69만원)에도 못 미치는
+<u>유학생 밀집지</u>였다. 점수 설계를 VDI 기반으로 교체하자 목록이 완전히 바뀌었다.</p>
+
+<table><thead>
+<tr><th class="n" style="width:5%">순위</th><th>지역</th><th class="n">VDI</th><th class="n">상대성장률</th><th class="n">1인당 외국인 소비</th><th class="n">등록외국인</th></tr></thead><tbody>
+<tr class="hl"><td class="n">1</td><td><b>대구 중구</b> <span class="sub">동성로</span></td><td class="n">+0.75</td><td class="n">+12.9%</td><td class="n"><b>411만원</b></td><td class="n">995명</td></tr>
+<tr><td class="n">2</td><td><b>청주 서원구</b></td><td class="n">+0.38</td><td class="n">+3.4%</td><td class="n">103만원</td><td class="n">4,446명</td></tr>
+<tr><td class="n">3</td><td><b>강릉</b></td><td class="n">+0.04</td><td class="n">+3.4%</td><td class="n">98만원</td><td class="n">4,294명</td></tr>
+<tr><td class="n">4</td><td><b>부산 해운대구</b></td><td class="n">+0.09</td><td class="n">+1.5%</td><td class="n">132만원</td><td class="n">4,746명</td></tr>
+<tr><td class="n">5</td><td><b>인천 중구</b> <span class="sub">차이나타운·공항</span></td><td class="n">+0.31</td><td class="n">+0.0%</td><td class="n">114만원</td><td class="n">5,744명</td></tr>
+</tbody></table>
+<p class="sub">대구 중구는 등록외국인이 995명뿐인데 외국인 소비가 41억 원이다. 1인당 411만원으로 도심 방문형 중앙값의 6배이며, 상대성장률도 후보 중 1위다.</p>
+
+<figure><img class="m" src="../outputs/figures/fig8_final_candidates.png">
+<figcaption>오른쪽 위 사분면(방문 수요 + 성장)이 최종 후보군. 성장률만 높고 VDI가 음(-)인 지역은 '잠재 성장형'으로 분류해 최종 추천에서 제외했다.</figcaption></figure>
+
+<h2>3. 무엇을 하자는 것인가</h2>
+<p class="sub">세 제안 모두 BC카드가 이미 보유한 자산과 무료 공개 데이터만으로 실행 가능한 범위다.</p>
+
+<h4><span class="tag">제안 1</span> 「외국인 상권 지수」 — 카드사만 만들 수 있는 데이터 상품</h4>
+<p>지자체는 외국인 관광 예산을 집행하지만 <b>얼마가 실제로 지역에서 쓰였는지</b>를 잴 수단이 없다.
+통신 데이터는 몇 명이 왔는지까지만 답한다. <b>이 빈칸은 카드사만 메울 수 있다.</b>
+본 분석의 세 지표(상권 유형·VDI·상대성장률)를 시군구별 월간 진단 리포트로 제공한다.
+고객은 관광 예산의 집행 근거와 성과 측정이 필요한 기초지자체·지역관광재단이다.</p>
+
+<h4><span class="tag o">제안 2</span> 잠재 관광 상권 TOP 5 — 결제 접점 전환</h4>
+<p>VDI가 양(+)이라는 것은 <u>수요는 이미 와 있다</u>는 뜻이다. 부족한 것은 결제 접점이다.
+미수납 가맹점 전환을 우선하고, 도심 방문형의 카페·양식 비중(17.6%, 근로형의 1.9배)에 예산을
+집중한다. 제주형(체류·고액)과 도심형(단기·고빈도)은 혜택을 달리 설계한다.</p>
+
+<h4><span class="tag g">제안 3</span> 근로형·정주형 147곳 — 외국인 주민 생활금융</h4>
+<p>외국인 소비의 <b>63.9%</b>(8,173억 원)가 여기 있다. 근로형의 장보기 비중 44.2%는 도심형의 2배로,
+관광이 아니라 <u>생활</u>이다. 관광 프로모션을 여기 집행하면 낭비다. 장보기 업종 정기 결제 리워드와
+다국어 결제 안내로 접근한다.</p>
+
+<h2>4. 기대효과</h2>
+<div class="note"><b>모두 추정치다.</b> 6개월 실적을 2배 하여 연환산했고(하반기 계절성이 상반기와 같다고 가정),
+BC카드 실적 기준이다. 개선폭은 가정치이며 실측이 아니다. 단일 추정치가 아니라 민감도로 제시한다.</div>
+<table class="compact"><thead>
+<tr><th>적용 범위</th><th class="n">연환산 외국인 소비</th><th class="n">개선 시 연간 증분</th></tr></thead><tbody>
+<tr class="hl"><td>잠재 상권 TOP 5 <span class="sub">상대성장률 +1~5%p</span></td><td class="n">513억원</td><td class="n">5.1억 ~ 25.7억원</td></tr>
+<tr><td>도심 방문형 50곳 <span class="sub">상대성장률 +1~5%p</span></td><td class="n">5,501억원</td><td class="n">55.0억 ~ 275.1억원</td></tr>
+<tr><td>근로형 68곳 + 정주형 79곳 <span class="sub">1인당 소비 +1~3%</span></td><td class="n">1조 6,347억원</td><td class="n">163억 ~ 490억원</td></tr>
+</tbody></table>
+<p>제안 1은 구독 단가를 알 수 없어 <b>매출을 추정하지 않는다.</b> 대신 공급 측 사실만 제시한다 —
+대상 199개 시군구, 연간 2,388건 생산 가능, <b>추가 데이터 구매 비용 0원</b>(법무부 데이터는 무료 공개분).</p>
+<p><b>수치 외의 효과</b>가 더 크다. 금액 상위 10곳 중 8곳이 산업단지·근로자 밀집지다.
+유형 분리 없이 관광 예산을 집행하면 이 지역들로 흘러간다. <b>분리 자체가 즉시 효과를 낸다.</b></p>
+
+<h2>5. 한계</h2>
+<ol>
+<li>BC카드 실적 기준이라 전체 카드시장과 차이가 있다.</li>
+<li>외국인 코드의 산정 기준이 공개되지 않아, 관광/정주 분리는 소비 패턴 기반 <b>추정</b>이다.</li>
+<li>VDI는 '거주지와 소비지의 불일치'를 잡는 지표다. 인근 거주 외국인의 원정 소비도 함께 잡힌다.
+    분리하려면 한국관광공사 시군구별 외국인 방문자 수가 필요하고, 결합 설계는 마련해 두었다.</li>
+<li>6개월 데이터라 연간 계절성 보정에 한계가 있다. 내국인 대비 상대지표로 완화했다.</li>
+</ol>
+
+<p class="byline">분석 과정·검증 절차·차트 전체는 <b>별첨 「분석 결과물」</b>에 수록했다.
+본 문서의 모든 수치는 제공 데이터와 법무부 공개 데이터로 재계산한 값이며, 추정 항목은 추정임을 명시했다.</p>
+
+</body></html>
